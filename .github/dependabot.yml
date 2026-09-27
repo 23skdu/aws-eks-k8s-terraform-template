@@ -28,6 +28,11 @@ updates:
       - "github-actions"
 
   # ── Terraform providers ────────────────────────────────────────────────────
+  # The root module is the canonical place, but Terraform intersects the
+  # constraints of every module in the configuration. A major bump that reaches
+  # only some of them makes `terraform init` fail with
+  # `no available releases match the given constraints`, so the child modules
+  # that declare their own `required_providers` are scanned as well.
   - package-ecosystem: "terraform"
     directory: "/tf"
     schedule:
@@ -37,3 +42,44 @@ updates:
     labels:
       - "dependencies"
       - "terraform"
+
+  - package-ecosystem: "terraform"
+    directory: "/modules/kubernetes"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "terraform"
+
+  - package-ecosystem: "terraform"
+    directory: "/modules/irsa"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "terraform"
+
+  - package-ecosystem: "terraform"
+    directory: "/modules/ebs_csi_addon"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "terraform"
+
+# Bump the AWS provider across every module that pins it in a single PR.
+# Without this, the per-directory entries above open independent PRs, and
+# merging only one of them leaves the configuration unresolvable.
+multi-directory-groups:
+  aws-provider:
+    patterns:
+      - "hashicorp/aws"
+    update-types:
+      - "version-update:semver-major"
+      - "version-update:semver-minor"

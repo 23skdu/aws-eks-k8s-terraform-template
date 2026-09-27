@@ -137,6 +137,39 @@ The other EKS add-ons (`vpc-cni`, `coredns`, `kube-proxy`,
 `eks-pod-identity-agent`) take no IRSA role and stay in `modules/eks`.
 `eks-pod-identity-agent` uses the EKS Pod Identity API, not OIDC.
 
+#### No `moved` blocks are needed
+
+If you have been following this template, you may expect `moved` blocks for the
+resources that changed module. There aren't any, deliberately:
+
+- The cycle existed from the initial commit, which means `terraform plan` and
+  `terraform apply` **never worked on the root module**. There is no root
+  state to migrate, so `moved` blocks would reference addresses that never
+  existed and do nothing.
+- The one exception is anyone who applied `modules/iam` directly, which earlier
+  revisions of this README described as usable in isolation. `modules/iam` no
+  longer creates the OIDC provider or the three IRSA roles — they are in
+  `modules/irsa` — so a standalone apply of `modules/iam` would plan to destroy
+  them. Adopt the new layout by importing into the `modules/irsa` state and
+  dropping them from the old one, for each of:
+
+  | Resource in `modules/irsa` | Import ID |
+  |---|---|
+  | `aws_iam_openid_connect_provider.eks` | the provider ARN |
+  | `aws_iam_role.alb_controller[0]` | `<cluster_name>-alb-controller` |
+  | `aws_iam_role.cluster_autoscaler[0]` | `<cluster_name>-cluster-autoscaler` |
+  | `aws_iam_role.ebs_csi` | `<cluster_name>-ebs-csi-driver` |
+
+  ```bash
+  terraform -chdir=modules/irsa import aws_iam_role.ebs_csi my-cluster-ebs-csi-driver
+  terraform -chdir=modules/iam   state rm aws_iam_role.ebs_csi
+  ```
+
+  The policies and role attachments follow the same import-then-`state rm`
+  order; import the role first, since the policy attachment depends on it.
+  This applies only to a standalone `modules/iam` state, not to a root-module
+  state.
+
 ### 1. Bootstrap the State Bucket
 
 The S3 state bucket and DynamoDB lock table must exist **before** you configure
