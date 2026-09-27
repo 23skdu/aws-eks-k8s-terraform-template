@@ -1,0 +1,36 @@
+##############################################################################
+# test/.golangci.yml
+# golangci-lint configuration for the test suite.
+##############################################################################
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - gosec
+    - gofmt
+    - goimports
+    - misspell
+    - prealloc
+    - revive
+
+linters-settings:
+  gosec:
+    excludes:
+      # G304: File path provided as taint input - acceptable in tests reading golden files.
+      - G304
+
+issues:
+  exclude-rules:
+    - path: "_test\\.go"
+      linters:
+        - gosec
+      text: "G304"

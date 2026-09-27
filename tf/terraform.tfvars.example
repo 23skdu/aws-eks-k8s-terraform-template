@@ -1,0 +1,53 @@
+##############################################################################
+# tf/terraform.tfvars.example
+# Copy this file to terraform.tfvars and fill in your values.
+# Never commit terraform.tfvars to version control.
+##############################################################################
+
+aws_region   = "us-east-1"
+cluster_name = "my-eks-cluster"
+environment  = "dev"
+
+state_bucket_name     = "my-eks-tf-state-<account-id>"
+state_lock_table_name = "terraform-state-lock"
+
+# Networking
+vpc_cidr             = "10.0.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
+
+# EKS
+kubernetes_version     = "1.31"
+endpoint_public_access = false
+
+# General Node Group
+general_instance_types = ["t3.medium"]
+general_capacity_type  = "ON_DEMAND"
+general_desired_size   = 2
+general_min_size       = 1
+general_max_size       = 10
+general_disk_size_gb   = 50
+
+# System Node Group
+system_instance_types = ["t3.small"]
+system_desired_size   = 2
+system_min_size       = 1
+system_max_size       = 5
+system_disk_size_gb   = 50
+
+# Monitoring
+enable_alerting        = true
+alert_email            = "ops@example.com"
+cpu_alarm_threshold    = 80
+memory_alarm_threshold = 80
+
+# Security
+enable_guardduty  = true
+enable_aws_config = false
+
+# Tags
+tags = {
+  Owner   = "platform-team"
+  CostCenter = "engineering"
+}

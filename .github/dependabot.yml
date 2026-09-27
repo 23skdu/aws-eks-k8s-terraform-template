@@ -1,0 +1,39 @@
+##############################################################################
+# .github/dependabot.yml
+# Keeps Go modules, GitHub Actions, and Terraform providers up to date.
+##############################################################################
+
+version: 2
+updates:
+  # ── Go modules (test suite) ───────────────────────────────────────────────
+  - package-ecosystem: "gomod"
+    directory: "/test"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "go"
+
+  # ── GitHub Actions ─────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # ── Terraform providers ────────────────────────────────────────────────────
+  - package-ecosystem: "terraform"
+    directory: "/tf"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "terraform"
