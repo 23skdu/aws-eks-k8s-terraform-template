@@ -142,7 +142,6 @@ func TestUnitKMSDeletionWindowBounds(t *testing.T) {
 		{"above_max", 31, true},
 		{"at_max", 30, false},
 	} {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

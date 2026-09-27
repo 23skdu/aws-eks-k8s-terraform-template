@@ -21,7 +21,12 @@ func TestMain(m *testing.M) {
 
 // defaultTerraformOptions returns a base *terraform.Options suitable for
 // plan-only (no-op) tests that do not require real AWS credentials.
-// AWS provider calls are skipped by setting TF_CLI_ARGS or mock vars as needed.
+//
+// Race-safety note: this function allocates a brand-new Vars map on every
+// invocation. Callers that run in parallel may safely mutate opts.Vars after
+// the call without synchronisation — there is no shared underlying map.
+// Go 1.22+ loop semantics also ensure loop-variable captures in sub-tests are
+// per-iteration, so no tc := tc shadowing is required.
 func defaultTerraformOptions(t *testing.T) *terraform.Options {
 	t.Helper()
 

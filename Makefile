@@ -57,6 +57,9 @@ go-lint: ## Run golangci-lint on the test suite
 test-unit: ## Run unit tests (plan-only, no AWS credentials required)
 	cd $(TEST_DIR) && go test -v -count=1 -timeout 15m -run TestUnit ./...
 
+test-race: ## Run unit tests under the race detector
+	cd $(TEST_DIR) && go test -race -count=1 -timeout 15m -run TestUnit ./...
+
 test-modules: ## Run per-module unit tests
 	cd $(TEST_DIR) && go test -v -count=1 -timeout 15m -run TestUnitNetworking,TestUnitKMS,TestUnitStateBucket,TestUnitMonitoring,TestUnitSecurity ./...
 
