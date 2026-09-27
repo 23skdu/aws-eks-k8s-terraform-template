@@ -52,20 +52,27 @@ aws eks update-kubeconfig --region <region> --name <cluster-name>
 ## Module Dependency Graph
 
 ```
-kms
-├── statebucket (depends on kms)
-├── networking
-├── eks (depends on networking, iam)
-│   └── iam (depends on eks OIDC URL — circular via depends_on)
-├── kubernetes (depends on eks)
-├── monitoring (depends on kms)
-└── security
+iam  ──(cluster + node role ARNs)──▶  eks  ──(OIDC issuer URL)──▶  irsa  ──▶  ebs_csi_addon
+networking ─────────────────────────▶   │
+kms ────────────────────────────────▶   │
+                                       ├──▶ kubernetes
+kms ────────────────────────────────▶   ├──▶ monitoring
+statebucket ───────────────────────▶    └──▶ security
 ```
 
-> **Note:** The `iam` module requires the EKS OIDC issuer URL (available only
-> after the cluster is created). This creates a soft circular dependency that
-> Terraform resolves through the explicit `depends_on = [module.eks]` directive
-> in `modules.tf`.
+Every edge points one way, so the graph is acyclic and `terraform plan` runs.
+
+> **Why IAM is split across three modules.** The control-plane and node-group
+> roles in `modules/iam` are assumed by `eks.amazonaws.com` and
+> `ec2.amazonaws.com`, so they need no OIDC trust policy and can be created
+> before the cluster. `modules/irsa` needs the cluster's OIDC issuer URL, which
+> EKS generates only once the cluster exists. `modules/ebs_csi_addon` needs an
+> IRSA role, so it follows `irsa`. Folding these into one module would
+> reintroduce a dependency cycle: the cluster would need the IRSA role while the
+> IRSA role would need the cluster.
+>
+> `depends_on` cannot paper over this — it only *adds* ordering constraints, so
+> it would deepen a cycle rather than break one.
 
 ## Key Outputs
 
@@ -77,6 +84,7 @@ kms
 | `oidc_provider_arn` | IRSA OIDC provider ARN |
 | `vpc_id` | VPC ID |
 | `private_subnet_ids` | Private subnet IDs for node groups |
+| `ebs_csi_role_arn` | IRSA ARN for the EBS CSI driver |
 | `configure_kubectl` | Ready-to-run `aws eks update-kubeconfig` command |
 | `alb_controller_role_arn` | IRSA ARN for AWS Load Balancer Controller |
 | `cluster_autoscaler_role_arn` | IRSA ARN for Cluster Autoscaler |

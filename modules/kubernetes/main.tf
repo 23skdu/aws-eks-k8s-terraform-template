@@ -12,7 +12,7 @@ terraform {
   }
 }
 
-resource "kubernetes_namespace" "namespaces" {
+resource "kubernetes_namespace_v1" "namespaces" {
   for_each = toset(var.namespaces)
 
   metadata {
@@ -25,7 +25,7 @@ resource "kubernetes_namespace" "namespaces" {
   }
 }
 
-resource "kubernetes_storage_class" "gp3" {
+resource "kubernetes_storage_class_v1" "gp3" {
   metadata {
     name = "gp3"
     annotations = {

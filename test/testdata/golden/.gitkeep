@@ -1,0 +1,2 @@
+# Placeholder so testdata/golden/ exists in version control.
+# Real golden files are generated with: make test-update-golden

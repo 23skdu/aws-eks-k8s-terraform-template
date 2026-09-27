@@ -6,29 +6,37 @@
 
 # ── GuardDuty ─────────────────────────────────────────────────────────────────
 
+# AWS provider v6 deprecates the detector's `datasources` block in favour of
+# one aws_guardduty_detector_feature resource per protection.
 resource "aws_guardduty_detector" "main" {
   count  = var.enable_guardduty ? 1 : 0
   enable = true
 
-  datasources {
-    s3_logs {
-      enable = true
-    }
-    kubernetes {
-      audit_logs {
-        enable = true
-      }
-    }
-    malware_protection {
-      scan_ec2_instance_with_findings {
-        ebs_volumes {
-          enable = true
-        }
-      }
-    }
-  }
-
   tags = var.tags
+}
+
+resource "aws_guardduty_detector_feature" "s3_data_events" {
+  count = var.enable_guardduty ? 1 : 0
+
+  detector_id = aws_guardduty_detector.main[0].id
+  name        = "S3_DATA_EVENTS"
+  status      = "ENABLED"
+}
+
+resource "aws_guardduty_detector_feature" "eks_audit_logs" {
+  count = var.enable_guardduty ? 1 : 0
+
+  detector_id = aws_guardduty_detector.main[0].id
+  name        = "EKS_AUDIT_LOGS"
+  status      = "ENABLED"
+}
+
+resource "aws_guardduty_detector_feature" "ebs_malware_protection" {
+  count = var.enable_guardduty ? 1 : 0
+
+  detector_id = aws_guardduty_detector.main[0].id
+  name        = "EBS_MALWARE_PROTECTION"
+  status      = "ENABLED"
 }
 
 # ── AWS Config Rules ──────────────────────────────────────────────────────────

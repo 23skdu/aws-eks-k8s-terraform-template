@@ -4,7 +4,7 @@ Production-ready EKS cluster on AWS with modular architecture, multi-environment
 
 ## Features
 
-- **8 reusable modules**: `networking`, `iam`, `eks`, `kms`, `monitoring`, `security`, `statebucket`, `kubernetes`
+- **10 reusable modules**: `networking`, `iam`, `eks`, `irsa`, `ebs_csi_addon`, `kms`, `monitoring`, `security`, `statebucket`, `kubernetes`
 - **Multi-environment** with per-environment `terraform.tfvars` (`dev`, `staging`, `prod`)
 - **EKS cluster** with two managed node groups: general-purpose and system (tainted)
 - **Private cluster** — API endpoint private by default; public access CIDRs configurable
@@ -16,7 +16,8 @@ Production-ready EKS cluster on AWS with modular architecture, multi-environment
 - **VPC Flow Logs** to CloudWatch
 - **NAT Gateways** per AZ for high-availability egress
 - **CloudWatch alarms** for CPU and memory with SNS email alerting
-- **GuardDuty** with EKS runtime threat detection, Kubernetes audit logs, and malware protection
+- **GuardDuty** with S3 data events, EKS audit logs, and EBS malware protection
+  (add `EKS_RUNTIME_MONITORING` in `modules/security` for EKS runtime threat detection)
 - **AWS Config** EKS compliance rules (optional)
 - **S3 state bucket** with versioning, lifecycle rules, KMS encryption, and public-access block
 - **DynamoDB lock table** with point-in-time recovery and KMS encryption
@@ -43,8 +44,10 @@ Production-ready EKS cluster on AWS with modular architecture, multi-environment
 ├── Makefile                        # Common operations
 ├── modules/
 │   ├── networking/                 # VPC, subnets, IGW, NAT, flow logs
-│   ├── iam/                        # Cluster/node roles, OIDC, IRSA
+│   ├── iam/                        # Cluster + node group roles (pre-cluster)
 │   ├── eks/                        # Cluster, node groups, add-ons
+│   ├── irsa/                       # OIDC provider + IRSA roles (post-cluster)
+│   ├── ebs_csi_addon/              # aws-ebs-csi-driver add-on bound to IRSA role
 │   ├── kms/                        # Customer-managed KMS key
 │   ├── monitoring/                 # CloudWatch alarms, SNS, dashboard
 │   ├── security/                   # GuardDuty, AWS Config
@@ -73,13 +76,6 @@ Production-ready EKS cluster on AWS with modular architecture, multi-environment
 ```
 
 ## Quick Start
-
-> ⚠️ **Steps 1–3 do not run end to end yet.** The root module currently fails
-> `terraform validate` with a `module.eks` ↔ `module.iam` dependency cycle, so
-> `plan` and `apply` cannot execute. Read
-> [Known Issues](#known-issues) before following this. Step 4 is unaffected.
-> Every child module validates cleanly on its own, so the individual modules
-> are usable now.
 
 ### Prerequisites
 
@@ -110,8 +106,36 @@ exact provider builds this template was validated against are reproducible.
 > child pin of `~> 2.32` resolve to no version at all and `terraform init` fails
 > with `no available releases match the given constraints`. Dependabot only
 > rewrites the root declaration, so provider-major PRs against this repo need
-> the matching child-module edit. `modules/kubernetes` is the only child module
-> that declares its own `required_providers` block today.
+> the matching child-module edit. `modules/kubernetes`, `modules/irsa`, and
+> `modules/ebs_csi_addon` declare their own `required_providers` blocks.
+
+### Module architecture
+
+The root module wires the children in one direction only, so the graph is
+acyclic and `terraform plan` runs:
+
+```
+iam ──────────────┐
+                  ▼
+networking ──▶ eks ──▶ irsa ──▶ ebs_csi_addon
+kms ──────────┘     │
+                    ├──▶ kubernetes
+                    ├──▶ monitoring
+                    └──▶ security
+statebucket (depends on kms)
+```
+
+The ordering is not arbitrary. `iam` holds the control-plane and node-group
+roles, which are assumed by service principals and therefore need no OIDC trust
+policy, so they can exist before the cluster. `irsa` needs the cluster's OIDC
+issuer URL, which EKS only generates once the cluster exists. `ebs_csi_addon`
+needs an IRSA role, so it follows `irsa`. Keeping these in three modules rather
+than one is what avoids a cycle — a single combined module would need the
+cluster and the IRSA roles simultaneously.
+
+The other EKS add-ons (`vpc-cni`, `coredns`, `kube-proxy`,
+`eks-pod-identity-agent`) take no IRSA role and stay in `modules/eks`.
+`eks-pod-identity-agent` uses the EKS Pod Identity API, not OIDC.
 
 ### 1. Bootstrap the State Bucket
 
@@ -191,40 +215,12 @@ See [`test/README.md`](test/README.md) for full test documentation.
 
 ## Known Issues
 
-Pre-existing problems, unrelated to any recent dependency bump. Fixing these is
-the most useful next contribution to this template.
+Outstanding problems in this template. Fixing these is the most useful next
+contribution.
 
-### 1. `module.eks` ↔ `module.iam` dependency cycle
+### 1. Unit tests require AWS credentials
 
-`terraform validate` on the root module fails, which also blocks
-`terraform plan` and `terraform apply`:
-
-```
-Error: Cycle:
-  module.eks.aws_eks_cluster.main
-  module.eks.var.cluster_role_arn (expand)
-  module.iam.output.cluster_role_arn (expand)
-  module.iam (expand)
-  module.eks.output.cluster_arn (expand)
-  ...
-```
-
-`module.eks` needs IAM role ARNs from `module.iam`, while `module.iam` needs
-the cluster ARN, OIDC issuer URL, and cluster name from `module.eks`. The
-cycle closes on the OIDC issuer: `modules/iam` derives it from the cluster
-name and AWS account ID rather than reading the cluster's actual issuer.
-
-All eight child modules validate cleanly in isolation — the cycle only exists
-once they are wired together in the root module.
-
-Because `plan` and `apply` cannot run, the Quick Start above cannot complete
-end to end until this is resolved. Breaking it typically means moving the OIDC
-provider creation into `module.eks` (which owns the cluster), or passing the
-account ID in as an input so `module.iam` no longer needs a cluster output.
-
-### 2. Unit tests require AWS credentials
-
-As described above, plan-based tests cannot run without valid credentials. The
+Plan-based tests cannot run without valid credentials, as described above. The
 `go-test` CI job in [`ci.yml`](.github/workflows/ci.yml) sets no AWS
 credentials, so it fails for this reason. Two ways to resolve it:
 
@@ -236,6 +232,24 @@ credentials, so it fails for this reason. Two ways to resolve it:
   in `tf/main.tf` behind a variable that defaults to `false`. The per-module
   tests in `modules_test.go` would need equivalent handling, since the child
   modules have no provider block of their own.
+
+### 2. No golden files are committed
+
+`test/testdata/golden/` is empty in version control, so `TestUnitPlanOutputsGolden`
+and `TestUnitPlanResourceTypes` fail with `golden file not found` even once
+credentials are available. The `go-test` CI job's `upload-artifact` step
+(`path: test/testdata/`) has nothing to upload for the same reason.
+
+Generate them against a real account to close this out:
+
+```bash
+make test-update-golden
+```
+
+Expect resource addresses to differ from any older checkout: the
+`aws-ebs-csi-driver` add-on now lives in `module.ebs_csi_addon`, and GuardDuty
+features are separate `aws_guardduty_detector_feature` resources rather than a
+`datasources` block.
 
 ### 3. `aws-sdk-go` v1 is end-of-support
 
@@ -268,7 +282,7 @@ provider versions.
 - ✅ All EBS volumes encrypted with **KMS CMK** via launch templates
 - ✅ **IMDSv2** enforced on all nodes (`http_tokens = "required"`)
 - ✅ **VPC Flow Logs** enabled for network visibility
-- ✅ **GuardDuty** with EKS runtime protection
+- ✅ **GuardDuty** with EKS audit logs, S3 data events, and EBS malware protection
 - ✅ **IRSA** instead of node-level instance profiles
 - ✅ Nodes placed in **private subnets only**
 - ✅ System node group **tainted** (`CriticalAddonsOnly=true:NoSchedule`)

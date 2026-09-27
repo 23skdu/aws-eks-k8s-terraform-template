@@ -31,7 +31,7 @@ output "cluster_oidc_issuer_url" {
 
 output "oidc_provider_arn" {
   description = "ARN of the OIDC provider for IRSA."
-  value       = module.iam.oidc_provider_arn
+  value       = module.irsa.oidc_provider_arn
 }
 
 output "vpc_id" {
@@ -62,12 +62,17 @@ output "kms_key_arn" {
 
 output "alb_controller_role_arn" {
   description = "IRSA ARN for the AWS Load Balancer Controller."
-  value       = module.iam.alb_controller_role_arn
+  value       = module.irsa.alb_controller_role_arn
 }
 
 output "cluster_autoscaler_role_arn" {
   description = "IRSA ARN for the Cluster Autoscaler."
-  value       = module.iam.cluster_autoscaler_role_arn
+  value       = module.irsa.cluster_autoscaler_role_arn
+}
+
+output "ebs_csi_role_arn" {
+  description = "IRSA ARN for the EBS CSI driver."
+  value       = module.irsa.ebs_csi_role_arn
 }
 
 output "configure_kubectl" {

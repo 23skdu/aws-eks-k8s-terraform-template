@@ -48,11 +48,6 @@ variable "node_group_role_arn" {
   type        = string
 }
 
-variable "ebs_csi_role_arn" {
-  description = "ARN of the IRSA role for the EBS CSI driver addon."
-  type        = string
-}
-
 variable "kms_key_arn" {
   description = "ARN of the KMS key for encrypting EKS secrets and EBS volumes."
   type        = string

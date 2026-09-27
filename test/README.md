@@ -90,7 +90,12 @@ UPDATE_GOLDEN=true go test -v -run TestUnit ./...
 make test-update-golden
 ```
 
-Golden files are committed to version control so CI can compare against them.
+Golden files are meant to be committed so CI can compare against them, but
+**none are committed yet** — `testdata/golden/` is empty in version control, so
+`TestUnitPlanOutputsGolden` and `TestUnitPlanResourceTypes` currently fail with
+`golden file not found` and the CI `upload-artifact` step has nothing to
+upload. Run the command above once against a real account to create them.
+
 A diff in CI indicates the plan changed unexpectedly — either a bug or a
 missing golden-file update.
 

@@ -24,11 +24,6 @@ make pre-commit-install
 make fmt validate lint
 ```
 
-> `make validate` currently **fails** on the root module with a
-> `module.eks` ↔ `module.iam` dependency cycle. This is a pre-existing bug, not
-> something you introduced — see the Known Issues section of the
-> [README](README.md). All eight child modules validate cleanly.
-
 ## Workflow
 
 1. **Fork** the repository and create a feature branch from `main`.
@@ -70,10 +65,22 @@ make fmt validate lint
   version boundary make `terraform init` fail with
   `no available releases match the given constraints`.
 - Dependabot only rewrites the root declaration, so provider-major PRs against
-  this repo need the matching child-module edit by hand. Today
-  `modules/kubernetes` is the only child module with its own pin.
+  this repo need the matching child-module edit by hand.
+  `modules/kubernetes`, `modules/irsa`, and `modules/ebs_csi_addon` declare
+  their own pins.
 - Commit the root `tf/.terraform.lock.hcl` so the validated provider builds are
   reproducible. Child-module lock files are gitignored on purpose.
+
+### Module boundaries
+
+The root wiring must stay acyclic. `terraform validate` is the check — it fails
+loudly on a cycle, so never work around one with `depends_on`, which only adds
+ordering constraints and makes a cycle worse.
+
+The current order is `iam` → `eks` → `irsa` → `ebs_csi_addon`, and it exists for
+a reason: the cluster must exist before its OIDC issuer URL is known, and an
+IRSA role cannot be built before that. If you add a resource that needs an IRSA
+role, put it in a module that already follows `irsa` — not in `modules/eks`.
 
 ### Commits
 
@@ -103,8 +110,11 @@ All resources are automatically destroyed via
 The [Known Issues](README.md#known-issues) list in the README is the best
 guide. In rough order of tractability:
 
-1. Migrate `test/eks_integration_test.go` from end-of-support `aws-sdk-go` v1
+1. Generate the missing golden files (`make test-update-golden`) so the
+   regression tests and the CI artifact upload have something to work with.
+2. Migrate `test/eks_integration_test.go` from end-of-support `aws-sdk-go` v1
    to `aws-sdk-go-v2` (five helpers, self-contained).
-2. Break the `module.eks` ↔ `module.iam` cycle so the template can plan.
 3. Unblock the `go-test` CI job by giving the test suite a way to skip AWS
    credential validation.
+4. Add module unit tests for `iam`, `irsa`, and `ebs_csi_addon` — they are the
+   only modules without coverage.

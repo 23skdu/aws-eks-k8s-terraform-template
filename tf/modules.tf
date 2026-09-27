@@ -38,6 +38,15 @@ module "networking" {
   tags                    = local.common_tags
 }
 
+# ── IAM (control-plane and node roles; needed before the cluster exists) ─────
+
+module "iam" {
+  source = "../modules/iam"
+
+  cluster_name = var.cluster_name
+  tags         = local.common_tags
+}
+
 # ── EKS Cluster ───────────────────────────────────────────────────────────────
 
 module "eks" {
@@ -49,7 +58,6 @@ module "eks" {
   private_subnet_ids  = module.networking.private_subnet_ids
   cluster_role_arn    = module.iam.cluster_role_arn
   node_group_role_arn = module.iam.node_group_role_arn
-  ebs_csi_role_arn    = module.iam.ebs_csi_role_arn
   kms_key_arn         = module.kms.key_arn
 
   endpoint_public_access    = var.endpoint_public_access
@@ -74,17 +82,28 @@ module "eks" {
   tags = local.common_tags
 }
 
-# ── IAM (IRSA requires OIDC URL from the cluster) ────────────────────────────
+# ── IRSA (needs the cluster's OIDC issuer URL, so it comes after eks) ─────────
 
-module "iam" {
-  source = "../modules/iam"
+module "irsa" {
+  source = "../modules/irsa"
 
   cluster_name              = var.cluster_name
   cluster_oidc_issuer_url   = module.eks.cluster_oidc_issuer_url
   enable_alb_controller     = var.enable_alb_controller
   enable_cluster_autoscaler = var.enable_cluster_autoscaler
   tags                      = local.common_tags
+}
 
+# ── EBS CSI Driver add-on (binds an IRSA role, so it comes after irsa) ───────
+
+module "ebs_csi_addon" {
+  source = "../modules/ebs_csi_addon"
+
+  cluster_name     = var.cluster_name
+  ebs_csi_role_arn = module.irsa.ebs_csi_role_arn
+  tags             = local.common_tags
+
+  # The driver only registers once the general node group exists.
   depends_on = [module.eks]
 }
 
