@@ -4,7 +4,7 @@ Production-ready EKS cluster on AWS with modular architecture, multi-environment
 
 ## Features
 
-- **7 reusable modules**: `networking`, `iam`, `eks`, `kms`, `monitoring`, `security`, `statebucket`, `kubernetes`
+- **8 reusable modules**: `networking`, `iam`, `eks`, `kms`, `monitoring`, `security`, `statebucket`, `kubernetes`
 - **Multi-environment** with per-environment `terraform.tfvars` (`dev`, `staging`, `prod`)
 - **EKS cluster** with two managed node groups: general-purpose and system (tainted)
 - **Private cluster** — API endpoint private by default; public access CIDRs configurable
@@ -74,15 +74,44 @@ Production-ready EKS cluster on AWS with modular architecture, multi-environment
 
 ## Quick Start
 
+> ⚠️ **Steps 1–3 do not run end to end yet.** The root module currently fails
+> `terraform validate` with a `module.eks` ↔ `module.iam` dependency cycle, so
+> `plan` and `apply` cannot execute. Read
+> [Known Issues](#known-issues) before following this. Step 4 is unaffected.
+> Every child module validates cleanly on its own, so the individual modules
+> are usable now.
+
 ### Prerequisites
 
-| Tool | Version |
-|------|---------|
-| Terraform | ≥ 1.9 |
-| Go | ≥ 1.22 |
-| AWS CLI | ≥ 2 |
-| tflint | ≥ 0.53 |
-| checkov | ≥ 3 |
+| Tool | Version | Notes |
+|------|---------|-------|
+| Terraform | ≥ 1.9 | CI pins 1.9.8; validated locally against 1.16.4 |
+| Go | ≥ 1.26 | Must satisfy the `go` directive in [`test/go.mod`](test/go.mod) |
+| golangci-lint | ≥ 2.14 | v2 schema only — see [`test/.golangci.yml`](test/.golangci.yml) |
+| AWS CLI | ≥ 2 | Used for `aws eks get-token` by the Kubernetes provider |
+| tflint | ≥ 0.53 | |
+| checkov | ≥ 3 | |
+
+### Provider versions
+
+| Provider | Constraint | Locked |
+|----------|-----------|--------|
+| `hashicorp/aws` | `~> 6.66` | 6.66.0 |
+| `hashicorp/kubernetes` | `~> 3.2` | 3.2.1 |
+| `hashicorp/tls` | `~> 4.0` | 4.4.1 |
+
+Versions are pinned in [`tf/main.tf`](tf/main.tf) and recorded in
+[`tf/.terraform.lock.hcl`](tf/.terraform.lock.hcl), which is committed so the
+exact provider builds this template was validated against are reproducible.
+
+> **When bumping a provider in a child module**, update the pin in *both* the
+> root module and the child module. Terraform intersects version constraints
+> across every module in the configuration, so a root pin of `~> 3.2` and a
+> child pin of `~> 2.32` resolve to no version at all and `terraform init` fails
+> with `no available releases match the given constraints`. Dependabot only
+> rewrites the root declaration, so provider-major PRs against this repo need
+> the matching child-module edit. `modules/kubernetes` is the only child module
+> that declares its own `required_providers` block today.
 
 ### 1. Bootstrap the State Bucket
 
@@ -140,18 +169,81 @@ terraform apply -var-file=../environments/dev/terraform.tfvars
 
 ## Running Tests
 
+> **The unit tests need real AWS credentials.** They are "plan-only" in that
+> nothing is provisioned, but AWS provider v6 resolves the account ID at plan
+> time by calling `sts:GetCallerIdentity`. That call must succeed, so the
+> credentials need to be genuinely valid — dummy values are rejected with
+> `InvalidClientTokenId`. No IAM permissions to create resources are required,
+> only the ability to call STS. See [Known Issues](#known-issues).
+
 ```bash
-# Unit tests — no AWS credentials required, runs in ~60 seconds
+# Unit tests — requires valid AWS credentials, ~60 seconds
 make test-unit
 
 # Update golden files after intentional plan changes
 make test-update-golden
 
-# Integration tests — requires AWS credentials, ~30 min
+# Integration tests — requires full AWS permissions, ~30 min
 make test-integration
 ```
 
 See [`test/README.md`](test/README.md) for full test documentation.
+
+## Known Issues
+
+Pre-existing problems, unrelated to any recent dependency bump. Fixing these is
+the most useful next contribution to this template.
+
+### 1. `module.eks` ↔ `module.iam` dependency cycle
+
+`terraform validate` on the root module fails, which also blocks
+`terraform plan` and `terraform apply`:
+
+```
+Error: Cycle:
+  module.eks.aws_eks_cluster.main
+  module.eks.var.cluster_role_arn (expand)
+  module.iam.output.cluster_role_arn (expand)
+  module.iam (expand)
+  module.eks.output.cluster_arn (expand)
+  ...
+```
+
+`module.eks` needs IAM role ARNs from `module.iam`, while `module.iam` needs
+the cluster ARN, OIDC issuer URL, and cluster name from `module.eks`. The
+cycle closes on the OIDC issuer: `modules/iam` derives it from the cluster
+name and AWS account ID rather than reading the cluster's actual issuer.
+
+All eight child modules validate cleanly in isolation — the cycle only exists
+once they are wired together in the root module.
+
+Because `plan` and `apply` cannot run, the Quick Start above cannot complete
+end to end until this is resolved. Breaking it typically means moving the OIDC
+provider creation into `module.eks` (which owns the cluster), or passing the
+account ID in as an input so `module.iam` no longer needs a cluster output.
+
+### 2. Unit tests require AWS credentials
+
+As described above, plan-based tests cannot run without valid credentials. The
+`go-test` CI job in [`ci.yml`](.github/workflows/ci.yml) sets no AWS
+credentials, so it fails for this reason. Two ways to resolve it:
+
+- Grant the job a read-only credential set via repository secrets (needs only
+  `sts:GetCallerIdentity`).
+- Have the test suite configure the provider to skip validation. For the root
+  module this means setting `skip_credentials_validation`,
+  `skip_requesting_account_id`, and `skip_metadata_api_check` on the provider
+  in `tf/main.tf` behind a variable that defaults to `false`. The per-module
+  tests in `modules_test.go` would need equivalent handling, since the child
+  modules have no provider block of their own.
+
+### 3. `aws-sdk-go` v1 is end-of-support
+
+`test/eks_integration_test.go` still uses AWS SDK for Go v1, which reached
+end-of-support on 2025-07-31. The `SA1019` deprecation is currently suppressed
+for that file only so the rest of the deprecation checking stays active.
+Migrating to `aws-sdk-go-v2` is a contained refactor (five helpers in that one
+file) and is worth doing as its own change.
 
 ## CI/CD
 
@@ -162,6 +254,12 @@ See [`test/README.md`](test/README.md) for full test documentation.
 | `go-test` | push/PR to main | `go vet` + unit tests |
 | `golangci-lint` | push/PR to main | Go linting |
 | `integration` | manual / nightly | Full deploy + destroy |
+
+`golangci-lint-action@v9` requires golangci-lint **v2**, so `ci.yml` pins
+`v2.14.0` to match the v2 schema in `test/.golangci.yml`. The two must be
+bumped together. CI requests Go 1.26 to satisfy the `go` directive in
+`test/go.mod`, and Terraform 1.9.8, which is compatible with the pinned
+provider versions.
 
 ## Security Best Practices Implemented
 

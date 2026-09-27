@@ -44,7 +44,7 @@ resource "aws_security_group" "nodes" {
   vpc_id      = var.vpc_id
 
   tags = merge(var.tags, {
-    Name = "${var.cluster_name}-nodes-sg"
+    Name                                        = "${var.cluster_name}-nodes-sg"
     "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   })
 }
@@ -301,8 +301,8 @@ resource "aws_launch_template" "system" {
 # ── EKS Add-ons ───────────────────────────────────────────────────────────────
 
 resource "aws_eks_addon" "vpc_cni" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "vpc-cni"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "vpc-cni"
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -310,8 +310,8 @@ resource "aws_eks_addon" "vpc_cni" {
 }
 
 resource "aws_eks_addon" "coredns" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "coredns"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "coredns"
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -321,8 +321,8 @@ resource "aws_eks_addon" "coredns" {
 }
 
 resource "aws_eks_addon" "kube_proxy" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "kube-proxy"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "kube-proxy"
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -330,9 +330,9 @@ resource "aws_eks_addon" "kube_proxy" {
 }
 
 resource "aws_eks_addon" "ebs_csi_driver" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "aws-ebs-csi-driver"
-  service_account_role_arn = var.ebs_csi_role_arn
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "aws-ebs-csi-driver"
+  service_account_role_arn    = var.ebs_csi_role_arn
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 
@@ -342,8 +342,8 @@ resource "aws_eks_addon" "ebs_csi_driver" {
 }
 
 resource "aws_eks_addon" "pod_identity_agent" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "eks-pod-identity-agent"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "eks-pod-identity-agent"
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 

@@ -7,11 +7,13 @@
 //
 // # Running Tests
 //
-// Unit tests (plan only, no AWS credentials required):
+// Unit tests (plan only, but still require valid AWS credentials — the AWS
+// provider resolves the account ID during plan via sts:GetCallerIdentity):
 //
 //	go test -v -run TestUnit ./...
 //
-// Integration tests (requires real AWS credentials):
+// Integration tests (requires real AWS credentials with permissions to create
+// EKS, VPC, IAM, KMS, and S3 resources):
 //
 //	go test -v -timeout 60m -run TestIntegration ./...
 //

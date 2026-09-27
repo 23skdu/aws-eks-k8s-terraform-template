@@ -54,7 +54,7 @@ go-vet: ## Run go vet on the test suite
 go-lint: ## Run golangci-lint on the test suite
 	cd $(TEST_DIR) && golangci-lint run --config .golangci.yml
 
-test-unit: ## Run unit tests (plan-only, no AWS credentials required)
+test-unit: ## Run unit tests (plan-only, but still needs valid AWS credentials)
 	cd $(TEST_DIR) && go test -v -count=1 -timeout 15m -run TestUnit ./...
 
 test-race: ## Run unit tests under the race detector

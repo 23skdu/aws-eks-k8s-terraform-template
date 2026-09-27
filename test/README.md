@@ -25,7 +25,7 @@ test/
 
 ### Unit Tests (`TestUnit*`)
 
-- **No AWS credentials required** — run entirely via `terraform plan`
+- **Require valid AWS credentials** — see the note below
 - Fast: complete in ~60 seconds
 - Cover: variable validation, plan output names, resource type coverage
 - Use golden files for regression detection
@@ -35,6 +35,15 @@ go test -v -run TestUnit ./...
 # or via Make:
 make test-unit
 ```
+
+> **Why credentials are needed for "plan-only" tests.** AWS provider v6
+> resolves the account ID during `plan` by calling `sts:GetCallerIdentity`, and
+> that call has to succeed before any planning happens. Placeholder credentials
+> are not enough — they fail with
+> `api error InvalidClientTokenId: The security token included in the request is
+> invalid`. No permissions to create or modify resources are needed; being able
+> to call STS is sufficient. This is why the `go-test` CI job, which runs
+> without credentials, cannot currently pass.
 
 ### Module Unit Tests (`TestUnit<ModuleName>*`)
 
@@ -56,7 +65,7 @@ make test-modules
 
 - **Requires real AWS credentials** with permissions for EKS, VPC, IAM, KMS, S3
 - Runtime: ~25-30 minutes per test
-- Always destroy resources via `defer terraform.Destroy(...)`, even on failure
+- Always destroy resources via `defer terraform.DestroyContext(...)`, even on failure
 
 ```bash
 export AWS_ACCESS_KEY_ID=...
@@ -108,10 +117,23 @@ All dependencies are managed by Go modules. Update them with:
 go mod tidy
 ```
 
+The module targets Go 1.26, set by the `go` directive in `go.mod`. CI requests
+the same version via `actions/setup-go`.
+
+Terratest v1.0.x deprecated its non-context helpers in favour of `*Context`
+variants that accept a `context.Context`. The suite uses `t.Context()` so
+cancellation tracks the test lifetime. Prefer the `*Context` forms in new code;
+`staticcheck`'s `SA1019` check is active and will flag the old ones.
+
 Key packages:
 
 | Package | Purpose |
 |---------|---------|
 | `github.com/gruntwork-io/terratest` | Terraform test framework |
 | `github.com/stretchr/testify` | Assertions (`assert`, `require`) |
-| `github.com/aws/aws-sdk-go` | AWS SDK (integration tests) |
+| `github.com/aws/aws-sdk-go` | AWS SDK (integration tests) — **v1, end-of-support** |
+
+`aws-sdk-go` v1 reached end-of-support on 2025-07-31. Only
+`eks_integration_test.go` uses it, through five helpers. Its `SA1019`
+deprecation is suppressed for that file alone until it is ported to
+`aws-sdk-go-v2`; `SA1019` remains active for every other file.

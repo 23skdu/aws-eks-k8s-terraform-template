@@ -51,7 +51,7 @@ func assertGolden(t *testing.T, got interface{}) {
 		"output does not match golden file %q; re-run with UPDATE_GOLDEN=true to update", path)
 }
 
-// ── Unit Tests (plan-only, no AWS credentials required) ───────────────────────
+// ── Unit Tests (plan-only; still need valid AWS credentials) ───────────────────
 
 // TestUnitVariableDefaults verifies that the root module can be initialised and
 // planned with default variable values without errors.

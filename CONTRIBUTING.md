@@ -13,12 +13,21 @@ opening a pull request.
 # 1. Install dependencies
 brew install terraform tflint checkov golangci-lint pre-commit go
 
+# Go must be >= 1.26 to match the `go` directive in test/go.mod.
+# golangci-lint must be >= 2.14: test/.golangci.yml uses the v2 schema,
+# and CI (golangci-lint-action@v9) pins v2.14.0 to match.
+
 # 2. Install pre-commit hooks
 make pre-commit-install
 
 # 3. Verify everything is working
 make fmt validate lint
 ```
+
+> `make validate` currently **fails** on the root module with a
+> `module.eks` ↔ `module.iam` dependency cycle. This is a pre-existing bug, not
+> something you introduced — see the Known Issues section of the
+> [README](README.md). All eight child modules validate cleanly.
 
 ## Workflow
 
@@ -48,6 +57,23 @@ make fmt validate lint
   `TestIntegration`.
 - Golden files live in `test/testdata/golden/`. Update them with
   `make test-update-golden` when plan output legitimately changes.
+- Use Terratest's `*Context` helpers and pass `t.Context()`. The non-context
+  variants are deprecated as of terratest v1.0 and `SA1019` will flag them.
+- Unit tests need valid AWS credentials even though they only plan — the AWS
+  provider calls `sts:GetCallerIdentity` to resolve the account ID.
+
+### Providers
+
+- Provider version constraints are declared in **both** the root module and,
+  where a child module declares its own `required_providers`, in that child
+  module. Terraform intersects all of them, so mismatched pins across a major
+  version boundary make `terraform init` fail with
+  `no available releases match the given constraints`.
+- Dependabot only rewrites the root declaration, so provider-major PRs against
+  this repo need the matching child-module edit by hand. Today
+  `modules/kubernetes` is the only child module with its own pin.
+- Commit the root `tf/.terraform.lock.hcl` so the validated provider builds are
+  reproducible. Child-module lock files are gitignored on purpose.
 
 ### Commits
 
@@ -69,5 +95,16 @@ require:
 make test-integration
 ```
 
-All resources are automatically destroyed via `defer terraform.Destroy(...)`,
-even if the test fails.
+All resources are automatically destroyed via
+`defer terraform.DestroyContext(...)`, even if the test fails.
+
+## Useful First Contributions
+
+The [Known Issues](README.md#known-issues) list in the README is the best
+guide. In rough order of tractability:
+
+1. Migrate `test/eks_integration_test.go` from end-of-support `aws-sdk-go` v1
+   to `aws-sdk-go-v2` (five helpers, self-contained).
+2. Break the `module.eks` ↔ `module.iam` cycle so the template can plan.
+3. Unblock the `go-test` CI job by giving the test suite a way to skip AWS
+   credential validation.

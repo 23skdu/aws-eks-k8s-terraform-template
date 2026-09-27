@@ -79,11 +79,11 @@ module "eks" {
 module "iam" {
   source = "../modules/iam"
 
-  cluster_name            = var.cluster_name
-  cluster_oidc_issuer_url = module.eks.cluster_oidc_issuer_url
-  enable_alb_controller   = var.enable_alb_controller
+  cluster_name              = var.cluster_name
+  cluster_oidc_issuer_url   = module.eks.cluster_oidc_issuer_url
+  enable_alb_controller     = var.enable_alb_controller
   enable_cluster_autoscaler = var.enable_cluster_autoscaler
-  tags                    = local.common_tags
+  tags                      = local.common_tags
 
   depends_on = [module.eks]
 }
