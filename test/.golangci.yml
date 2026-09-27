@@ -1,7 +1,10 @@
 ##############################################################################
 # test/.golangci.yml
 # golangci-lint configuration for the test suite.
+# Schema: golangci-lint v2 (required by golangci/golangci-lint-action@v9).
 ##############################################################################
+
+version: "2"
 
 run:
   timeout: 5m
@@ -12,25 +15,32 @@ linters:
     - errcheck
     - govet
     - staticcheck
-    - gosimple
-    - ineffassign
     - unused
     - gosec
-    - gofmt
-    - goimports
     - misspell
     - prealloc
     - revive
+  settings:
+    gosec:
+      excludes:
+        # G304: File path provided as taint input - acceptable in tests reading golden files.
+        - G304
+  exclusions:
+    rules:
+      - path: "_test\\.go"
+        linters:
+          - gosec
+        text: "G304"
+      # aws-sdk-go v1 reached end-of-support on 2025-07-31. eks_integration_test.go
+      # still uses it; migrating to aws-sdk-go-v2 is tracked as separate work, so
+      # suppress only that deprecation here. SA1019 stays active everywhere else
+      # so terratest deprecations are still caught.
+      - path: "eks_integration_test\\.go"
+        linters:
+          - staticcheck
+        text: "SA1019: github.com/aws/aws-sdk-go"
 
-linters-settings:
-  gosec:
-    excludes:
-      # G304: File path provided as taint input - acceptable in tests reading golden files.
-      - G304
-
-issues:
-  exclude-rules:
-    - path: "_test\\.go"
-      linters:
-        - gosec
-      text: "G304"
+formatters:
+  enable:
+    - gofmt
+    - goimports

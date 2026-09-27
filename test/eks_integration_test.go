@@ -107,28 +107,29 @@ func getVPC(t *testing.T, sess *session.Session, vpcID string) *ec2.Vpc {
 func TestIntegrationEKSCluster(t *testing.T) {
 	// Do NOT call t.Parallel() here; integration tests consume real quota.
 
-	uniqueID := strings.ToLower(random.UniqueId())
+	uniqueID := strings.ToLower(random.UniqueID())
 	awsRegion := "us-east-1"
 	opts := integrationTerraformOptions(t, uniqueID)
+	ctx := t.Context()
 
 	// Always clean up, even if the test panics.
-	defer terraform.Destroy(t, opts)
+	defer terraform.DestroyContext(t, ctx, opts)
 
 	// Deploy
-	terraform.InitAndApply(t, opts)
+	terraform.InitAndApplyContext(t, ctx, opts)
 
 	// ── Assert outputs ──────────────────────────────────────────────────────
 
-	clusterName := terraform.Output(t, opts, "cluster_name")
+	clusterName := terraform.OutputContext(t, ctx, opts, "cluster_name")
 	assert.Equal(t, fmt.Sprintf("test-eks-%s", uniqueID), clusterName)
 
-	clusterVersion := terraform.Output(t, opts, "cluster_version")
+	clusterVersion := terraform.OutputContext(t, ctx, opts, "cluster_version")
 	assert.Equal(t, "1.31", clusterVersion)
 
-	vpcID := terraform.Output(t, opts, "vpc_id")
+	vpcID := terraform.OutputContext(t, ctx, opts, "vpc_id")
 	assert.NotEmpty(t, vpcID, "vpc_id output must not be empty")
 
-	configureCmd := terraform.Output(t, opts, "configure_kubectl")
+	configureCmd := terraform.OutputContext(t, ctx, opts, "configure_kubectl")
 	assert.Contains(t, configureCmd, "aws eks update-kubeconfig")
 
 	// ── Assert real AWS resources via SDK ─────────────────────────────────
@@ -156,10 +157,10 @@ func TestIntegrationEKSCluster(t *testing.T) {
 	eksSvc := eks.New(sess)
 	ngName := fmt.Sprintf("%s-general", clusterName)
 
-	retry.DoWithRetry(t, "Wait for general node group to become ACTIVE",
+	retry.DoWithRetryContext(t, ctx, "Wait for general node group to become ACTIVE",
 		40, 30*time.Second,
 		func() (string, error) {
-			out, err := eksSvc.DescribeNodegroupWithContext(context.Background(),
+			out, err := eksSvc.DescribeNodegroupWithContext(ctx,
 				&eks.DescribeNodegroupInput{
 					ClusterName:   aws.String(clusterName),
 					NodegroupName: aws.String(ngName),

@@ -16,7 +16,8 @@ permissions:
 
 env:
   TERRAFORM_VERSION: "1.9.8"
-  GO_VERSION: "1.22"
+  # Must satisfy the `go` directive in test/go.mod.
+  GO_VERSION: "1.26"
 
 jobs:
   # ── Terraform: Format, Validate, tflint ─────────────────────────────────────
@@ -139,6 +140,8 @@ jobs:
 
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.61
+          # v9 of this action requires golangci-lint v2, matching the schema in
+          # test/.golangci.yml. Keep these two in lockstep.
+          version: v2.14.0
           working-directory: test
           args: --config .golangci.yml --timeout 5m

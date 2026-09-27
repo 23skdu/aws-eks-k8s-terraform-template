@@ -22,7 +22,8 @@ permissions:
 
 env:
   TERRAFORM_VERSION: "1.9.8"
-  GO_VERSION: "1.22"
+  # Must satisfy the `go` directive in test/go.mod.
+  GO_VERSION: "1.26"
 
 jobs:
   integration:

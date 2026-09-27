@@ -1,6 +1,12 @@
 # Local .terraform directories
 .terraform/
 
+# Provider lock files for shared child modules. HashiCorp recommends committing
+# .terraform.lock.hcl only for root modules; the authoritative pin is
+# tf/.terraform.lock.hcl, which records the versions this template was
+# validated against.
+modules/*/.terraform.lock.hcl
+
 # .tfstate files
 *.tfstate
 *.tfstate.*

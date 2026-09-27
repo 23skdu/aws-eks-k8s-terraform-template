@@ -59,7 +59,7 @@ func TestUnitVariableDefaults(t *testing.T) {
 	t.Parallel()
 
 	opts := defaultTerraformOptions(t)
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.Equal(t, 0, exitCode, "plan must succeed with default variable values")
 }
 
@@ -69,7 +69,7 @@ func TestUnitNetworkingModuleOutputNames(t *testing.T) {
 	t.Parallel()
 
 	opts := defaultTerraformOptions(t)
-	planStruct := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFile(t, opts)
+	planStruct := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFileContext(t, t.Context(), opts)
 
 	// The plan must not be nil
 	require.NotNil(t, planStruct, "plan JSON must not be nil")
@@ -83,7 +83,7 @@ func TestUnitClusterNameValidation(t *testing.T) {
 	opts := defaultTerraformOptions(t)
 	opts.Vars["cluster_name"] = "INVALID_NAME!!"
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.NotEqual(t, 0, exitCode, "expected non-zero exit code for invalid cluster_name")
 }
 
@@ -95,7 +95,7 @@ func TestUnitEnvironmentValidation(t *testing.T) {
 	opts := defaultTerraformOptions(t)
 	opts.Vars["environment"] = "unknown-env"
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.NotEqual(t, 0, exitCode, "expected non-zero exit code for invalid environment")
 }
 
@@ -106,7 +106,7 @@ func TestUnitVPCCIDRValidation(t *testing.T) {
 	opts := defaultTerraformOptions(t)
 	opts.Vars["vpc_cidr"] = "not-a-cidr"
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.NotEqual(t, 0, exitCode, "expected non-zero exit code for invalid vpc_cidr")
 }
 
@@ -118,7 +118,7 @@ func TestUnitCapacityTypeValidation(t *testing.T) {
 	opts := defaultTerraformOptions(t)
 	opts.Vars["general_capacity_type"] = "RESERVED"
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.NotEqual(t, 0, exitCode, "expected non-zero exit code for invalid general_capacity_type")
 }
 
@@ -130,7 +130,7 @@ func TestUnitKubernetesVersionValidation(t *testing.T) {
 	opts := defaultTerraformOptions(t)
 	opts.Vars["kubernetes_version"] = "v1.31.0" // wrong format
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.NotEqual(t, 0, exitCode, "expected non-zero exit code for invalid kubernetes_version format")
 }
 
@@ -143,7 +143,7 @@ func TestUnitAvailabilityZonesMinCount(t *testing.T) {
 	opts.Vars["public_subnet_cidrs"] = []string{"10.0.1.0/24"}
 	opts.Vars["private_subnet_cidrs"] = []string{"10.0.11.0/24"}
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.NotEqual(t, 0, exitCode, "expected non-zero exit code for fewer than 2 AZs")
 }
 
@@ -154,7 +154,7 @@ func TestUnitDiskSizeValidation(t *testing.T) {
 	opts := defaultTerraformOptions(t)
 	opts.Vars["general_disk_size_gb"] = 10 // below minimum of 20
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.NotEqual(t, 0, exitCode, "expected non-zero exit code for disk size below minimum")
 }
 
@@ -164,7 +164,7 @@ func TestUnitPlanOutputsGolden(t *testing.T) {
 	t.Parallel()
 
 	opts := defaultTerraformOptions(t)
-	planStruct := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFile(t, opts)
+	planStruct := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFileContext(t, t.Context(), opts)
 	require.NotNil(t, planStruct)
 
 	// Collect output names from RawPlan.PlannedValues.Outputs
@@ -185,7 +185,7 @@ func TestUnitPlanResourceTypes(t *testing.T) {
 	t.Parallel()
 
 	opts := defaultTerraformOptions(t)
-	planStruct := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFile(t, opts)
+	planStruct := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFileContext(t, t.Context(), opts)
 	require.NotNil(t, planStruct)
 
 	resourceTypes := collectResourceTypes(planStruct)

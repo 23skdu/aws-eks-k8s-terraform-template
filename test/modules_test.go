@@ -27,7 +27,7 @@ func TestUnitNetworkingModule(t *testing.T) {
 		NoColor: true,
 	}
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.Equal(t, 0, exitCode, "networking module plan must succeed")
 }
 
@@ -44,7 +44,7 @@ func TestUnitKMSModule(t *testing.T) {
 		NoColor: true,
 	}
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.Equal(t, 0, exitCode, "kms module plan must succeed")
 }
 
@@ -55,15 +55,15 @@ func TestUnitStateBucketModule(t *testing.T) {
 	opts := &terraform.Options{
 		TerraformDir: "../modules/statebucket",
 		Vars: map[string]interface{}{
-			"bucket_name":      "test-eks-tf-state-123",
-			"lock_table_name":  "test-eks-lock",
-			"kms_key_arn":      "arn:aws:kms:us-east-1:123456789012:key/test-key-id",
+			"bucket_name":       "test-eks-tf-state-123",
+			"lock_table_name":   "test-eks-lock",
+			"kms_key_arn":       "arn:aws:kms:us-east-1:123456789012:key/test-key-id",
 			"access_log_bucket": "",
 		},
 		NoColor: true,
 	}
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.Equal(t, 0, exitCode, "statebucket module plan must succeed")
 }
 
@@ -85,7 +85,7 @@ func TestUnitMonitoringModule(t *testing.T) {
 		NoColor: true,
 	}
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.Equal(t, 0, exitCode, "monitoring module plan must succeed")
 }
 
@@ -104,7 +104,7 @@ func TestUnitSecurityModule(t *testing.T) {
 		NoColor: true,
 	}
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.Equal(t, 0, exitCode, "security module plan must succeed")
 }
 
@@ -124,7 +124,7 @@ func TestUnitNetworkingMinAZValidation(t *testing.T) {
 		NoColor: true,
 	}
 
-	exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+	exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 	assert.NotEqual(t, 0, exitCode, "networking module must reject fewer than 2 AZs")
 }
 
@@ -154,7 +154,7 @@ func TestUnitKMSDeletionWindowBounds(t *testing.T) {
 				NoColor: true,
 			}
 
-			exitCode := terraform.InitAndPlanWithExitCode(t, opts)
+			exitCode := terraform.InitAndPlanWithExitCodeContext(t, t.Context(), opts)
 			if tc.wantErr {
 				assert.NotEqual(t, 0, exitCode)
 			} else {
@@ -181,7 +181,7 @@ func TestUnitOutputNamesContainRequired(t *testing.T) {
 	}
 
 	opts := defaultTerraformOptions(t)
-	planStruct := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFile(t, opts)
+	planStruct := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFileContext(t, t.Context(), opts)
 	require.NotNil(t, planStruct)
 
 	for _, name := range required {
@@ -196,7 +196,7 @@ func TestUnitConfigureKubectlOutput(t *testing.T) {
 	t.Parallel()
 
 	opts := defaultTerraformOptions(t)
-	planJSON := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFile(t, opts)
+	planJSON := terraform.InitAndPlanAndShowWithStructNoLogTempPlanFileContext(t, t.Context(), opts)
 	require.NotNil(t, planJSON)
 
 	output, ok := planJSON.RawPlan.PlannedValues.Outputs["configure_kubectl"]
