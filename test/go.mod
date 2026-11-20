@@ -1,6 +1,6 @@
 module github.com/23skdu/aws-eks-k8s-terraform-template/test
 
-go 1.26.0
+go 1.27.4
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
